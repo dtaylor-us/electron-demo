@@ -31,28 +31,25 @@ function getServerProcess() {
   return childProcess.spawn(getJavaPath(), ['-jar', JAR_FILE]);
 }
 
-function pingServer() {
-  let isSuccess = false;
+function pingServer(callback) {
   const requestPromise = require('minimal-request-promise');
 
   function onRejected() {
     return _ => {
       console.log('Waiting for the server start...');
       setTimeout(function() {
-        pingServer();
+        pingServer(callback);
       }, 200);
     };
   }
 
-  function onFulfilled() {
-    isSuccess = true;
+  function onFulfilled(fn) {
     return _ => {
-      console.log('Server started!');
+      fn();
     };
   }
 
-  requestPromise.get(APP_URL).then(onFulfilled(), onRejected());
-  return isSuccess;
+  requestPromise.get(APP_URL).then(onFulfilled(callback), onRejected());
 }
 
 module.exports = class ServerProcess {
@@ -62,8 +59,8 @@ module.exports = class ServerProcess {
     this.app = app;
   }
 
-  ping() {
-    return pingServer()
+  ping(callback) {
+    return pingServer(callback)
   }
 
 
