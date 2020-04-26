@@ -2,9 +2,12 @@ const {app, BrowserWindow} = require('electron');
 const path = require('path');
 const url = require('url');
 const childProcess = require('child_process');
+const ServerProcess = require('./ServerProcess');
+const isDev = require('electron-is-dev');
+const APP_URL = 'http://localhost:8080/greeting';
+
 
 const PLATFORM = process.platform;
-const APP_URL = 'http://localhost:8080/greeting';
 const WIN_JAVA_PATH = 'java.exe';
 const JAVA_PATH = 'java';
 const INDEX_FILE = __dirname + '/dist/sprangtron-ui/index.html';
@@ -14,6 +17,8 @@ const WIN_PLATFORM = 'win32';
 
 let mainWindow = null;
 let JVM_PARAMS = []; //['-Dserver.port=' + port, '-Dtest=test'];
+
+const server = new ServerProcess(PLATFORM);
 
 function getServerProcess() {
   console.log('::getting server process::'); // DEBUG LOG
@@ -27,23 +32,23 @@ function getServerProcess() {
   }
 }
 
-const getJavaPath = () => {
-  console.log('::getting java path::'); // DEBUG LOG
-  if (PLATFORM === WIN_PLATFORM) {
-    return WIN_JAVA_PATH;
-  } else {
-    return JAVA_PATH;
-  }
-};
-
-function getServerProcessJar() {
-  console.log('::getting jar-path::'); // DEBUG LOG
-  return childProcess.spawn(getJavaPath(), [
-    '-jar', JAR_FILE, {
-      cwd: app.getAppPath() + '/electron',
-    }],
-  );
-}
+// const getJavaPath = () => {
+//   console.log('::getting java path::'); // DEBUG LOG
+//   if (PLATFORM === WIN_PLATFORM) {
+//     return WIN_JAVA_PATH;
+//   } else {
+//     return JAVA_PATH;
+//   }
+// };
+//
+// function getServerProcessJar() {
+//   console.log('::getting jar-path::'); // DEBUG LOG
+//   return childProcess.spawn(getJavaPath(), [
+//     '-jar', JAR_FILE, {
+//       cwd: app.getAppPath() + '/electron',
+//     }],
+//   );
+// }
 
 const handleServerProcessError = (serverProcess) => {
   serverProcess.on('error', (code, _) => {
@@ -55,25 +60,25 @@ const handleServerProcessError = (serverProcess) => {
   });
 };
 
-function startServer() {
-  let serverProcess = getServerProcessJar();
-  handleServerProcessError(serverProcess);
-  console.log('::executing jar::'); // DEBUG LOG
-  serverProcess.stdout.on('data', function(data) {
-    console.log('Server: ' + data);
-  });
-
-  // serverProcess.stdout.on('data', function(data) {
-  //   console.log('Server: ' + data);
-  // });
-
-  console.log('Server PID: ' + serverProcess.pid);
-  return serverProcess;
-}
+// function startServer() {
+//   let server = server.getServerProcessJar();
+//   handleServerProcessError(server);
+//   console.log('::executing jar::'); // DEBUG LOG
+//   server.stdout.on('data', function(data) {
+//     console.log('Server: ' + data);
+//   });
+//
+//   // server.stdout.on('data', function(data) {
+//   //   console.log('Server: ' + data);
+//   // });
+//
+//   console.log('Server PID: ' + server.pid);
+//   return server;
+// }
 
 function createWindow() {
   console.log('::creating window::'); // DEBUG LOG
-  let serverProcess = startServer();
+  let serverProcess = server.startServer(app);
 
   const openWindow = () => {
     console.log('::opening window::'); // DEBUG LOG
@@ -90,7 +95,7 @@ function createWindow() {
       slashes: true,
     }));
 
-    if (isDev()) {
+    if (isDev) {
       mainWindow.webContents.openDevTools();
     }
 
@@ -106,7 +111,7 @@ function createWindow() {
 
         // kill Java executable
         const kill = require('tree-kill');
-        // serverProcess.kill();
+
         kill(serverProcess.pid, 'SIGTERM', function() {
           console.log('::killed java server::'); // DEBUG LOG
           serverProcess = null;
@@ -137,7 +142,7 @@ function createWindow() {
 
     requestPromise.get(APP_URL).then(onFulfilled(), onRejected());
   };
-  pingServer(20);
+  pingServer();
 }
 
 app.on('ready', createWindow);
