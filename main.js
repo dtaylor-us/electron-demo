@@ -1,14 +1,7 @@
 const {app, BrowserWindow} = require('electron');
 const path = require('path');
 const url = require('url');
-const fs = require('fs');
 const childProcess = require('child_process');
-
-let mainWindow = null;
-
-function isDev() {
-  return process.mainModule.filename.indexOf('app.asar') === -1;
-};
 
 const PLATFORM = process.platform;
 const APP_URL = 'http://localhost:8080/greeting';
@@ -19,9 +12,8 @@ const JAR_FILE = __dirname +
   '/dist/rest-service/rest-service-0.0.1-SNAPSHOT.jar';
 const WIN_PLATFORM = 'win32';
 
-let javaVMParameters = []; //['-Dserver.port=' + port, '-Dtest=test'];
-
-let serverProcess;
+let mainWindow = null;
+let JVM_PARAMS = []; //['-Dserver.port=' + port, '-Dtest=test'];
 
 function getServerProcess() {
   console.log('::getting server process::'); // DEBUG LOG
@@ -51,24 +43,21 @@ function getServerProcessJar() {
       cwd: app.getAppPath() + '/electron',
     }],
   );
-  // return childProcess.spawn(getJavaPath(),
-  //   ['-jar'].concat(javaVMParameters).concat(JAR_FILE), {
-  //     cwd: app.getAppPath() + '/electron',
-  //   });
 }
 
-function createWindow() {
-  console.log('::creating window::'); // DEBUG LOG
-  serverProcess = getServerProcessJar();
-
-  serverProcess.on('error', (code, signal) => {
-    console.log('::error on server process::'); // DEBUG LOG
+const handleServerProcessError = (serverProcess) => {
+  serverProcess.on('error', (code, _) => {
+    console.log('::error on server process:: ERR:' + code); // DEBUG LOG
     setTimeout(function() {
       app.exit();
     }, 1000);
     throw new Error('The Application could not be started');
   });
+};
 
+function startServer() {
+  let serverProcess = getServerProcessJar();
+  handleServerProcessError(serverProcess);
   console.log('::executing jar::'); // DEBUG LOG
   serverProcess.stdout.on('data', function(data) {
     console.log('Server: ' + data);
@@ -79,6 +68,12 @@ function createWindow() {
   // });
 
   console.log('Server PID: ' + serverProcess.pid);
+  return serverProcess;
+}
+
+function createWindow() {
+  console.log('::creating window::'); // DEBUG LOG
+  let serverProcess = startServer();
 
   const openWindow = () => {
     console.log('::opening window::'); // DEBUG LOG
@@ -95,6 +90,10 @@ function createWindow() {
       slashes: true,
     }));
 
+    if (isDev()) {
+      mainWindow.webContents.openDevTools();
+    }
+
     mainWindow.on('closed', () => {
       console.log('::window closed::'); // DEBUG LOG
       mainWindow = null;
@@ -107,7 +106,6 @@ function createWindow() {
 
         // kill Java executable
         const kill = require('tree-kill');
-
         // serverProcess.kill();
         kill(serverProcess.pid, 'SIGTERM', function() {
           console.log('::killed java server::'); // DEBUG LOG
@@ -118,29 +116,28 @@ function createWindow() {
     });
   };
 
-  const startUp = (count) => {
+  const pingServer = () => {
     const requestPromise = require('minimal-request-promise');
 
     function onRejected() {
-      return response => {
+      return _ => {
         console.log('Waiting for the server start...');
-        setTimeout(function () {
-          startUp();
+        setTimeout(function() {
+          pingServer();
         }, 200);
       };
     }
 
     function onFulfilled() {
-      return response => {
+      return _ => {
         console.log('Server started!');
         openWindow();
       };
     }
 
     requestPromise.get(APP_URL).then(onFulfilled(), onRejected());
-
   };
-  startUp(20);
+  pingServer(20);
 }
 
 app.on('ready', createWindow);
