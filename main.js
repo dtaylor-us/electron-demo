@@ -20,6 +20,30 @@ let serverProcess;
 
 const server = new ServerProcess(PLATFORM);
 
+function pingServer(callback, maxAttempts) {
+  const requestPromise = require('minimal-request-promise');
+
+  function onRejected() {
+    return _ => {
+      console.log(`ATTEMPTS LEFT::: ${maxAttempts}`);
+      if(maxAttempts > 0){
+        setTimeout(function() {
+          pingServer(callback, maxAttempts - 1);
+        }, 1000);
+      } else {
+        console.error('Failure connecting to server')
+      }
+    };
+  }
+
+  function onFulfilled(fn) {
+    return _ => {
+      fn();
+    };
+  }
+
+  requestPromise.get(APP_URL).then(onFulfilled(callback), onRejected(maxAttempts));
+}
 function createWindow() {
   console.log('::creating window::'); // DEBUG LOG
   const openWindow = () => {
