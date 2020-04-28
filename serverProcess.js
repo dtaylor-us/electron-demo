@@ -1,3 +1,4 @@
+const {app} = require('electron');
 const childProcess = require('child_process');
 const WIN_JAVA_PATH = 'java.exe';
 const JAVA_PATH = 'java';
@@ -15,17 +16,6 @@ function getJavaPath() {
   }
 }
 
-const handleServerProcessError = (app, serverProcess) => {
-  serverProcess.on('error', (code, _) => {
-    console.log('::error on server process:: ERR:' + code); // DEBUG LOG
-    setTimeout(function() {
-      app.exit();
-    }, 1000);
-    throw new Error('The Application could not be started');
-  });
-};
-
-
 function getServerProcess() {
   console.log('::getting jar-path::'); // DEBUG LOG
   return childProcess.spawn(getJavaPath(), ['-jar', JAR_FILE]);
@@ -41,6 +31,8 @@ function pingServer(callback, maxAttempts) {
         setTimeout(function() {
           pingServer(callback, maxAttempts - 1);
         }, 1000);
+      } else {
+        throw new Error('Unable to connect to server.')
       }
     };
   }
@@ -56,9 +48,8 @@ function pingServer(callback, maxAttempts) {
 
 module.exports = class ServerProcess {
 
-  constructor(app, platform) {
+  constructor(platform) {
     this.platform = platform;
-    this.app = app;
   }
 
   ping(callback) {
@@ -74,7 +65,7 @@ module.exports = class ServerProcess {
     });
     serverProcess.stderr.on('data', (data) => {
       console.error(`child stderr:\n${data}`);
-      this.app.quit();
+      app.quit();
     });
     console.log('Server PID: ' + serverProcess.pid);
     return serverProcess;

@@ -20,31 +20,8 @@ let serverProcess;
 
 const server = new ServerProcess(PLATFORM);
 
-function pingServer(callback, maxAttempts) {
-  const requestPromise = require('minimal-request-promise');
-
-  function onRejected() {
-    return _ => {
-      console.log(`ATTEMPTS LEFT::: ${maxAttempts}`);
-      if(maxAttempts > 0){
-        setTimeout(function() {
-          pingServer(callback, maxAttempts - 1);
-        }, 1000);
-      } else {
-        console.error('Failure connecting to server')
-      }
-    };
-  }
-
-  function onFulfilled(fn) {
-    return _ => {
-      fn();
-    };
-  }
-
-  requestPromise.get(APP_URL).then(onFulfilled(callback), onRejected(maxAttempts));
-}
 function createWindow() {
+
   console.log('::creating window::'); // DEBUG LOG
   const openWindow = () => {
     console.log('::opening window::'); // DEBUG LOG
@@ -70,15 +47,30 @@ function createWindow() {
       mainWindow = null;
     });
   };
-    serverProcess = server.startServer(app);
-    server.ping(openWindow);
-  // if(!serverProcess){
-  //   serverProcess = server.startServer(app);
-  //   server.ping(openWindow);
-  // } else {
-  //   console.log('server running just opening window');
-  //   openWindow();
+
+  // async function startUp() {
+  //   await Promise.all([
+  //     (async () => {
+  //       const {result} = await server.startServer();
+  //       console.log("RESULT" + result);
+  //       serverProcess = result;
+  //     })(),
+  //     (async () => {
+  //       await server.ping(openWindow);
+  //     })(),
+  //   ])
   // }
+  //
+  // startUp().then(([result]) => {
+  //   openWindow();
+  // }).catch((err) => {
+  //   console.log(err);
+  //   app.quit();
+  // });
+
+  serverProcess = server.startServer();
+  server.ping(openWindow);
+
 }
 
 app.on('ready', createWindow);
@@ -87,7 +79,7 @@ app.on('before-quit', _ => {
   console.log('::quitting::' + serverProcess); // DEBUG LOG
   if (serverProcess) {
     // kill Java executable
-    serverProcess.kill("SIGINT")
+    serverProcess.kill('SIGINT');
   }
 });
 
