@@ -7,16 +7,6 @@ const JAR_FILE = __dirname +
   '/dist/rest-service/rest-service-0.0.1-SNAPSHOT.jar';
 const APP_URL = 'http://localhost:8080/greeting';
 // const APP_URL = process.env.APP_URL;
-const PLATFORM = process.platform;
-
-function getJavaPath() {
-  console.log('::getting java path::'); // DEBUG LOG
-  if (PLATFORM === WIN_PLATFORM) {
-    return WIN_JAVA_PATH;
-  } else {
-    return JAVA_PATH;
-  }
-}
 
 function getServerProcess() {
   console.log('::getting jar-path::'); // DEBUG LOG
@@ -41,7 +31,7 @@ function pingServer(serverProcess, callback, maxAttempts) {
 
   function onFulfilled(fn) {
     return _ => {
-      console.log('Server started successfuly!');
+      console.log('Successfully started server!');
       fn();
     };
   }
@@ -57,7 +47,6 @@ function pingServer(serverProcess, callback, maxAttempts) {
 
 module.exports = class ServerProcess {
   #serverProcess = getServerProcess();
-
   constructor() {}
 
   kill(){
