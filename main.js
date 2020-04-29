@@ -15,8 +15,8 @@ const createLoadingScreen = () => {
   loadingScreen = new BrowserWindow(
     Object.assign({
       /// define width and height for the window
-      width: 200,
-      height: 400,
+      width: 640,
+      height: 480,
       /// remove the window frame, so it will become a frameless window
       frame: false,
       /// and set the transparency, to remove any window background color
@@ -58,7 +58,7 @@ function createWindow() {
     mainWindow.show();
   });
 
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     console.log('::window closed::'); // DEBUG LOG
