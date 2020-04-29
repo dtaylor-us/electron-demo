@@ -1,15 +1,17 @@
 const {app} = require('electron');
 const childProcess = require('child_process');
-const WIN_JAVA_PATH = 'java.exe';
+
 const JAVA_PATH = 'java';
 const WIN_PLATFORM = 'win32';
 const JAR_FILE = __dirname +
   '/dist/rest-service/rest-service-0.0.1-SNAPSHOT.jar';
 const APP_URL = 'http://localhost:8080/greeting';
+// const APP_URL = process.env.APP_URL;
+const PLATFORM = process.platform;
 
 function getJavaPath() {
   console.log('::getting java path::'); // DEBUG LOG
-  if (this.platform === WIN_PLATFORM) {
+  if (PLATFORM === WIN_PLATFORM) {
     return WIN_JAVA_PATH;
   } else {
     return JAVA_PATH;
@@ -18,10 +20,10 @@ function getJavaPath() {
 
 function getServerProcess() {
   console.log('::getting jar-path::'); // DEBUG LOG
-  return childProcess.spawn(getJavaPath(), ['-jar', JAR_FILE]);
+  return childProcess.spawn('java', ['-jar', JAR_FILE]);
 }
 
-function pingServer(callback, maxAttempts) {
+function pingServer(serverProcess, callback, maxAttempts) {
   const requestPromise = require('minimal-request-promise');
 
   function onRejected() {
@@ -29,7 +31,7 @@ function pingServer(callback, maxAttempts) {
       console.log(`ATTEMPTS LEFT::: ${maxAttempts}`);
       if(maxAttempts > 0){
         setTimeout(function() {
-          pingServer(callback, maxAttempts - 1);
+          pingServer(serverProcess, callback, maxAttempts - 1);
         }, 1000);
       } else {
         throw new Error('Unable to connect to server.')
@@ -39,35 +41,44 @@ function pingServer(callback, maxAttempts) {
 
   function onFulfilled(fn) {
     return _ => {
+      console.log('Server started successfuly!');
       fn();
     };
   }
 
-  requestPromise.get(APP_URL).then(onFulfilled(callback), onRejected(maxAttempts));
+  requestPromise.get(APP_URL)
+  .then(onFulfilled(callback), onRejected(maxAttempts))
+  .catch((err) => {
+    console.error(err);
+    serverProcess.kill();
+    app.quit()
+  });
 }
 
 module.exports = class ServerProcess {
+  #serverProcess = getServerProcess();
 
-  constructor(platform) {
-    this.platform = platform;
+  constructor() {}
+
+  kill(){
+    if (this.#serverProcess) {
+      // kill Java executable
+      console.log('killing server');
+     this.#serverProcess.kill('SIGINT');
+    }
   }
 
-  ping(callback) {
-    console.log('Waiting for the server start...');
-    return pingServer(callback, 10)
-  }
-
-  startServer() {
-    let serverProcess = getServerProcess();
+  startServer(callback) {
     console.log('::executing jar::'); // DEBUG LOG
-    serverProcess.stdout.on('data', function(data) {
+    this.#serverProcess.stdout.on('data', function(data) {
       console.log('Server: ' + data);
     });
-    serverProcess.stderr.on('data', (data) => {
+    this.#serverProcess.stderr.on('data', (data) => {
       console.error(`child stderr:\n${data}`);
       app.quit();
     });
-    console.log('Server PID: ' + serverProcess.pid);
-    return serverProcess;
+    console.log('Server PID: ' + this.#serverProcess.pid);
+    console.log('Waiting for the server start...');
+    pingServer(this.#serverProcess, callback, 10);
   };
 };

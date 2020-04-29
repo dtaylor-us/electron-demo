@@ -3,29 +3,38 @@ const path = require('path');
 const url = require('url');
 const childProcess = require('child_process');
 const ServerProcess = require('./ServerProcess');
-const isDev = require('electron-is-dev');
-const APP_URL = 'http://localhost:8080/greeting';
 
-const PLATFORM = process.platform;
-const WIN_JAVA_PATH = 'java.exe';
-const JAVA_PATH = 'java';
 const INDEX_FILE = __dirname + '/dist/sprangtron-ui/index.html';
-const JAR_FILE = __dirname +
-  '/dist/rest-service/rest-service-0.0.1-SNAPSHOT.jar';
-const WIN_PLATFORM = 'win32';
 
 let mainWindow = null;
-let JVM_PARAMS = []; //['-Dserver.port=' + port, '-Dtest=test'];
-let serverProcess;
 
-const server = new ServerProcess(PLATFORM);
+const server = new ServerProcess();
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  // Create myWindow, load the rest of the app, etc...
+  app.on('ready', () => {
+    createWindow();
+  });
+}
 
 function createWindow() {
 
   console.log('::creating window::'); // DEBUG LOG
   const openWindow = () => {
     console.log('::opening window::'); // DEBUG LOG
-    let mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
       title: 'Demo',
       width: 640,
       height: 480,
@@ -38,9 +47,7 @@ function createWindow() {
       slashes: true,
     }));
 
-    if (isDev) {
-      mainWindow.webContents.openDevTools();
-    }
+    mainWindow.webContents.openDevTools();
 
     mainWindow.on('closed', () => {
       console.log('::window closed::'); // DEBUG LOG
@@ -68,19 +75,19 @@ function createWindow() {
   //   app.quit();
   // });
 
-  serverProcess = server.startServer();
-  server.ping(openWindow);
+  server.startServer(openWindow);
 
 }
 
-app.on('ready', createWindow);
+// app.on('ready', createWindow);
 
 app.on('before-quit', _ => {
-  console.log('::quitting::' + serverProcess); // DEBUG LOG
-  if (serverProcess) {
-    // kill Java executable
-    serverProcess.kill('SIGINT');
-  }
+  console.log('::quitting::'); // DEBUG LOG
+  server.kill();
+  // if (serverProcess) {
+  //   // kill Java executable
+  //   serverProcess.kill('SIGINT');
+  // }
 });
 
 app.on('window-all-closed', () => {
